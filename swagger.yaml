@@ -1,0 +1,223 @@
+openapi: 3.0.3
+info:
+  title: Fläschbäck Datenzentrale API
+  description: |
+    Enterprise REST-API für das Fläschbäck-Dokumentations- und Beziehungsnetzwerk.
+    Unterstützt fehlertolerantes Parsen von JSON (inkl. Trailing Commas), ID-Normalisierung
+    sowie relationale Datenkonsistenz über Null-Records (-0000).
+  version: 1.0.0
+servers:
+  - url: https://gudetadele.koeln:5000/api/v1
+    description: Lokaler Produktiv- oder Testserver (External Bind)
+  - url: http://localhost:5000/api/v1
+    description: Lokale Entwicklungsumgebung
+paths:
+  /sammelaktionen:
+    get:
+      summary: Liefert alle dokumentierten Sammelaktionen
+      operationId: getSammelaktionen
+      responses:
+        '200':
+          description: Eine Liste aller Glassammelaktionen
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Sammelaktion'
+    post:
+      summary: Upsert-Endpunkt für Listen von Sammelaktionen
+      description: Erstellt oder aktualisiert mehrere Sammelaktionen zeitgleich (Bulk-Upsert). IDs werden automatisch normalisiert.
+      operationId: upsertSammelaktionenBulk
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/Sammelaktion'
+      responses:
+        '200':
+          description: Bulk-Upsert erfolgreich verarbeitet
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: Erfolg
+                  anzahl:
+                    type: integer
+                    example: 3
+
+  /sammelaktion/{id}:
+    get:
+      summary: Liefert eine Sammelaktion zur angegebenen ID
+      operationId: getSammelaktion
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Die fbEventId der Sammelaktion (wird serverseitig zu CGN-YYYY-XXXX gepaddet)
+          schema:
+            type: string
+            example: CGN-2026-0001
+      responses:
+        '200':
+          description: Sammelaktion gefunden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sammelaktion'
+        '404':
+          description: Sammelaktion nicht gefunden
+    post:
+      summary: Upsert-Endpunkt für eine Sammelaktion zur angegebenen ID
+      description: Aktualisiert eine bestehende Aktion an ihrer exakten Position im Array oder fügt sie neu hinzu.
+      operationId: upsertSammelaktion
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SammelaktionInput'
+      responses:
+        '200':
+          description: Upsert erfolgreich durchgeführt
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: Erfolg
+                  fbEventId:
+                    type: string
+                    example: CGN-2026-0001
+    delete:
+      summary: Löscht eine Sammelaktion zur angegebenen ID
+      operationId: deleteSammelaktion
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Sammelaktion erfolgreich entfernt
+        '404':
+          description: Sammelaktion nicht gefunden
+
+  /organisationen:
+    get:
+      summary: Liefert die globale Master-Tabelle aller Organisationen
+      operationId: getOrganisationen
+      responses:
+        '200':
+          description: Liste aller Organisationen (ehem. Unternehmen)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Organisation'
+    post:
+      summary: Upsert-Endpunkt für Listen von Organisationen
+      operationId: upsertOrganisationenBulk
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/Organisation'
+      responses:
+        '200':
+          description: Organisationen erfolgreich verarbeitet
+
+  /organisation/{id}:
+    get:
+      summary: Liefert eine Organisation für die angegebene ID
+      operationId: getOrganisation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: COMP-0001
+      responses:
+        '200':
+          description: Organisation erfolgreich geladen
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organisation'
+    post:
+      summary: Upsert-Endpunkt für eine Organisation zur angegebenen ID
+      operationId: upsertOrganisation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Organisation'
+      responses:
+        '200':
+          description: Organisation erfolgreich gesichert
+
+  /relation:
+    post:
+      summary: Knüpft eine n:m Verknüpfung in event_partner_relation
+      description: Erstellt eine relationale Zuordnung zwischen einer Sammelaktion und einem Partner.
+      operationId: createRelation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventPartnerRelation'
+      responses:
+        '200':
+          description: Relation erfolgreich aufgebaut
+        '400':
+          description: Fehlerhafte Parameter übergeben
+
+  /export:
+    get:
+      summary: Download des gesamten Datenbestands als gepacktes ZIP-Archiv
+      description: Generiert im Speicher ein ZIP-Archiv, welches die relationale `data.json` sowie ein leeres Binärverzeichnis `medien/` enthält.
+      operationId: exportZip
+      responses:
+        '200':
+          description: ZIP-Datei erfolgreich generiert
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+
+  /import:
+    post:
+      summary: Upload & Strukturvalidierung einer data.json oder eines ZIP-Pakets
+      description: Akzeptiert entweder eine nackte .json-Datei oder ein .zip-Archiv. Führt vor dem Import die Datensanitierung (Trailing Commas Regex) durch.
+      operationId: importData
+      requestBody:
+        required: true

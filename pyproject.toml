@@ -1,0 +1,7 @@
+[project]
+name = "datenzentrale"
+version = "0.1.0"
+description = "Die Datenzentrale für das Fläschbäck-Glassammel-Team"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
