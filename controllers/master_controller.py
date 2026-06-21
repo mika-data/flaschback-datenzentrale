@@ -3,7 +3,7 @@ import zipfile
 import json
 import logging
 from flask import Blueprint, jsonify, request, send_file
-from models.base import BasePersistence
+from models.base import BasePersistence, DEFAULT_DB
 from models.organisation import OrganisationModel
 
 master_controller = Blueprint('master_controller', __name__, url_prefix='/api/v1')
@@ -51,25 +51,58 @@ def export_zip():
 
 @master_controller.route('/import', methods=['POST'])
 def import_data():
-    logging.info("API Trigger: POST /api/v1/import")
+    logging.info("API Trigger: POST /api/v1/import gestartet.")
+    
     if 'file' not in request.files:
-        return jsonify({"fehler": "Keine Datei hochgeladen"}), 400
+        logging.warning("Import-Versuch ohne Datei-Attribut abgelehnt.")
+        return jsonify({"fehler": "Keine Datei im Request-Payload gefunden (Form-Data Key 'file' fehlt)"}), 400
+        
     file = request.files['file']
     if file.filename == '':
-        return jsonify({"fehler": "Leerer Dateiname"}), 400
+        logging.warning("Import-Versuch mit leerem Dateinamen abgelehnt.")
+        return jsonify({"fehler": "Dateiname darf nicht leer sein"}), 400
 
     try:
+        # Fall 1: ZIP-Archiv entpacken und data.json extrahieren
         if file.filename.endswith('.zip'):
+            logging.info(f"Verarbeite ZIP-Import: {file.filename}")
             with zipfile.ZipFile(file) as zf:
                 if 'data.json' not in zf.namelist():
-                    return jsonify({"fehler": "Keine data.json im ZIP-Archiv"}), 400
+                    logging.error("Validierungsfehler: data.json fehlt im ZIP-Wurzelverzeichnis.")
+                    return jsonify({"fehler": "Ungültiges Archiv: Keine data.json im ZIP-Archiv gefunden"}), 400
                 raw_content = zf.read('data.json').decode('utf-8')
+        
+        # Fall 2: Reine JSON-Datei einlesen
         else:
+            logging.info(f"Verarbeite native JSON-Datei: {file.filename}")
             raw_content = file.read().decode('utf-8')
 
+        # Fehlertolerantes Parsen (Trailing Commas Regex) über das Basis-Model
         parsed_data = BasePersistence.parse_json(raw_content)
+        
+        # Relationale Integritätssicherung: Fehlende Keys mit Standard-Strukturen (Null-Records) auffüllen
+        ergaenzte_keys = []
+        for key in DEFAULT_DB.keys():
+            if key not in parsed_data or not isinstance(parsed_data[key], list):
+                parsed_data[key] = list(DEFAULT_DB[key])
+                ergaenzte_keys.append(key)
+                
+        if ergaenzte_keys:
+            logging.info(f"Struktur repariert. Folgende Tabellen wurden als Default initialisiert: {ergaenzte_keys}")
+
+        # Persistent abspeichern
         BasePersistence.save_db(parsed_data)
-        return jsonify({"status": "Erfolg", "nachricht": "Daten erfolgreich importiert"})
+        logging.info("Import erfolgreich validiert und in data.json geschrieben.")
+        
+        return jsonify({
+            "status": "Erfolg",
+            "nachricht": "Daten erfolgreich importiert, repariert und strukturell abgeglichen.",
+            "ergaenzte_tabellen": ergaenzte_keys
+        }), 200
+        
+    except json.JSONDecodeError as jde:
+        logging.error(f"JSON-Parsing fehlgeschlagen trotz Regex-Sanitierung: {jde}")
+        return jsonify({"fehler": f"Defektes JSON-Format: {str(jde)}"}), 400
     except Exception as e:
-        logging.error(f"Import fehlgeschlagen: {e}")
-        return jsonify({"fehler": f"Fehler beim Import: {str(e)}"}), 400
+        logging.error(f"Kritischer Fehler während der Import-Pipeline: {e}")
+        return jsonify({"fehler": f"Interner Verarbeitungsfehler beim Import: {str(e)}"}), 500
