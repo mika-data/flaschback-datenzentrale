@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="bg-white p-6 rounded-lg shadow-md col-span-2">
+        <h2 class="text-xl font-bold mb-4 text-teal-700 border-b pb-2">📅 Glassammelaktionen</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-100 text-gray-700 text-sm uppercase">
+                        <th class="p-3 border">ID</th>
+                        <th class="p-3 border">Name</th>
+                        <th class="p-3 border">Datum</th>
+                        <th class="p-3 border">Ort/Stadtteil</th>
+                        <th class="p-3 border">Modus</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for aktion in db.glassammelaktionen %}
+                    <tr class="hover:bg-gray-50 border-b text-sm cursor-pointer" onclick="loadActionDetails('{{ aktion.fbEventId }}')">
+                        <td class="p-3 border font-mono font-bold text-teal-600">{{ aktion.fbEventId }}</td>
+                        <td class="p-3 border font-semibold">{{ aktion.name }}</td>
+                        <td class="p-3 border">{{ aktion.datum }}</td>
+                        <td class="p-3 border">{{ aktion.ort }} ({{ aktion.stadtteil }})</td>
+                        <td class="p-3 border"><span class="px-2 py-1 rounded text-xs {% if aktion.modus == 'Parade' %}bg-blue-100 text-blue-800{% else %}bg-green-100 text-green-800{% endif %}">{{ aktion.modus }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-xl font-bold mb-4 text-gray-700 border-b pb-2">🔍 Details verwalten</h2>
+        <form id="editorForm" class="space-y-4">
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-gray-600">Event ID</label>
+                <input type="text" id="fbEventId" class="w-full p-2 border rounded font-mono bg-gray-50" placeholder="z.B. CGN-2026-0001">
+            </div>
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-gray-600">Aktionsname</label>
+                <input type="text" id="name" class="w-full p-2 border rounded">
+            </div>
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-gray-600">Beschreibung</label>
+                <textarea id="beschreibung" class="w-full p-2 border rounded h-24"></textarea>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-600">Datum</label>
+                    <input type="date" id="datum" class="w-full p-2 border rounded">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-600">Stadtteil</label>
+                    <input type="text" id="stadtteil" class="w-full p-2 border rounded">
+                </div>
+            </div>
+            <button type="button" onclick="saveActionDetails()" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold p-2 rounded shadow transition">💾 Änderungen via Upsert speichern</button>
+        </form>
+    </div>
+</div>
+
+<script>
+function loadActionDetails(eventId) {
+    fetch('/api/v1/sammelaktion/' + eventId)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('fbEventId').value = data.fbEventId;
+            document.getElementById('name').value = data.name;
+            document.getElementById('beschreibung').value = data.beschreibung;
+            document.getElementById('datum').value = data.datum;
+            document.getElementById('stadtteil').value = data.stadtteil;
+        });
+}
+
+function saveActionDetails() {
+    const eventId = document.getElementById('fbEventId').value;
+    if(!eventId) return alert("Bitte wählen Sie eine Aktion aus oder geben Sie eine ID an.");
+    
+    const payload = {
+        name: document.getElementById('name').value,
+        beschreibung: document.getElementById('beschreibung').value,
+        datum: document.getElementById('datum').value,
+        stadtteil: document.getElementById('stadtteil').value
+    };
+    
+    fetch('/api/v1/sammelaktion/' + eventId, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(response => response.json())
+    .then(res => {
+        alert("Upsert erfolgreich! ID: " + res.fbEventId);
+        window.location.reload();
+    });
+}
+</script>
+{% endblock %}
