@@ -2,24 +2,214 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta author="Michael Cieslik">
-    <title>{% block title %}Fläschbäck{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Fläschbäck - Datenzentrale{% endblock %}</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 </head>
 <body class="bg-gray-50 text-gray-800 min-h-screen">
+
     <header class="bg-teal-600 text-white shadow-md">
-        <div class="max-w-7xl mx-auto px-4 py-5 flex justify-between items-center">
+        <div class="max-w-7xl mx-auto px-4 py-5 flex flex-col sm:flex-row justify-between items-center gap-4">
             <div>
-                <h1 class="text-2xl font-bold tracking-wide">Fläschbäck Datenzentrale</h1>
-                <p class="text-xs opacity-90">Enterprise Administration</p>
+                <h1 class="text-2xl font-bold tracking-wide">Fläschbäck</h1>
+                <p class="text-xs opacity-90">Zentrale Dokumentations-Plattform & Beziehungs-Matrix</p>
             </div>
-            <div>
-                <a href="/api/v1/export" class="bg-white text-teal-700 font-semibold px-4 py-2 rounded shadow hover:bg-teal-50 transition">📦 ZIP Export</a>
+            <div class="flex items-center gap-3">
+                <a href="/api/v1/export" class="bg-white text-teal-700 font-semibold px-4 py-2 rounded shadow hover:bg-teal-50 transition text-sm">
+                    📦 Daten als ZIP exportieren
+                </a>
+                <button onclick="document.getElementById('importFile').click()" class="bg-white text-teal-700 font-semibold px-4 py-2 rounded shadow hover:bg-teal-50 transition text-sm cursor-pointer">
+                    📥 Datenpaket importieren
+                </button>
+                <input type="file" id="importFile" accept=".json,.zip" class="hidden" onchange="triggerImport(event)">
             </div>
         </div>
     </header>
+    <div class="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 flex gap-2 overflow-x-auto">
+            
+            <button onclick="switchMainTab('sammelaktionen')" id="mainTab-sammelaktionen" class="main-tab px-6 py-4 font-bold text-sm border-b-4 border-teal-600 text-teal-600 whitespace-nowrap">🎯 Sammelaktionen</button>
+            <button onclick="switchMainTab('organisationen')" id="mainTab-organisationen" class="main-tab px-6 py-4 font-bold text-sm border-b-4 border-transparent text-gray-500 hover:text-gray-700 whitespace-nowrap">🏢 Organisationen</button>
+            <button onclick="switchMainTab('ansprechpartner')" id="mainTab-ansprechpartner" class="main-tab px-6 py-4 font-bold text-sm border-b-4 border-transparent text-gray-500 hover:text-gray-700 whitespace-nowrap">👤 Ansprechpartner</button>
+            <button onclick="switchMainTab('medienberichte')" id="mainTab-medienberichte" class="main-tab px-6 py-4 font-bold text-sm border-b-4 border-transparent text-gray-500 hover:text-gray-700 whitespace-nowrap">📰 Medienberichte</button>
+            <button onclick="switchMainTab('marketing_colabs')" id="mainTab-marketing_colabs" class="main-tab px-6 py-4 font-bold text-sm border-b-4 border-transparent text-gray-500 hover:text-gray-700 whitespace-nowrap">📣 Marketing Co-Labs</button>
+            <button onclick="switchMainTab('mediendateien')" id="mainTab-mediendateien" class="main-tab px-6 py-4 font-bold text-sm border-b-4 border-transparent text-gray-500 hover:text-gray-700 whitespace-nowrap">📸 Mediendateien</button>
+    
+        </div>
+    </div>
     <main class="max-w-7xl mx-auto px-4 py-8">
         {% block content %}{% endblock %}
     </main>
+
+    <script>
+    function triggerImport(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        fetch('/api/v1/import', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'Erfolg') {
+                alert('✅ ' + data.nachricht);
+                window.location.reload();
+            } else {
+                alert('❌ Fehler beim Import: ' + (data.fehler || 'Unbekannter Fehler'));
+            }
+        })
+        .catch(error => {
+            console.error('Fehler:', error);
+            alert('❌ Netzwerkfehler beim Importieren.');
+        })
+        .finally(() => {
+            document.getElementById('importFile').value = '';
+        });
+    }
+
+        function switchMainTab(tabName) {
+            currentMainTab = tabName;
+            document.querySelectorAll('.main-tab').forEach(b => b.classList.replace('border-teal-600', 'border-transparent'));
+            document.querySelectorAll('.main-tab').forEach(b => b.classList.replace('text-teal-600', 'text-gray-500'));
+            document.getElementById(`mainTab-${tabName}`).classList.replace('border-transparent', 'border-teal-600');
+            document.getElementById(`mainTab-${tabName}`).classList.replace('text-gray-500', 'text-teal-600');
+            //updateUI();
+        }
+
+
+    /**** alte Javascript-Funktionen für Dashboard, können später in separate Dateien ausgelagert werden
+     * 
+     * 
+        // Initiale DB-Struktur
+        let db = JSON.parse(localStorage.getItem('flaeschbaeck_db_v5')) || {
+            glassammelaktionen: [],
+            unternehmen: [], 
+            event_partner_relation: [],
+            medienberichte: [],
+            marketing_colabs: [],
+            ansprechpartner: [],
+            mediendateien: []
+        };
+
+        let currentMainTab = 'sammelaktionen';
+        let selectedEventId = null; 
+        let currentSubTab = 'organisationen';
+
+        // Flüchtige Speicher-Puffer für den Edit-Modus aller Entitäten
+        let currentEditingData = {
+            sammelaktionen: null,
+            organisationen: null,
+            ansprechpartner: null,
+            medienberichte: null,
+            marketing_colabs: null,
+            mediendateien: null
+        };
+
+        document.addEventListener("DOMContentLoaded", () => {
+            if(db.glassammelaktionen.length === 0) {
+                // Seed-Daten zur Veranschaulichung einspielen
+                db.unternehmen = [
+                    { "CompanyId": "COMP-0000", "Name": "noch nicht definiert", "URL": "https://koeln.de", "Rolle": "keine", "Type": "Unternehmen", "Rechtsform": "GmbH" },
+                    { "CompanyId": "COMP-0001", "Name": "abc Südstadt e.V.", "URL": "https://abc-suedstadt.de", "Rolle": "Veranstalter", "Type": "Verein", "Rechtsform": "e.V." },
+                    { "CompanyId": "COMP-0002", "Name": "Getränke Wingchen", "URL": "https://wingchen.de", "Rolle": "Logistikpartner", "Type": "Unternehmen", "Rechtsform": "GmbH" }
+                ];
+                db.glassammelaktionen = [
+                    { "fbEventId": "CGN-2026-0001", "name": "Geisterzug Nippes 2026", "beschreibung": "Gemeinsam mit der AWB Köln...", "datum": "2026-02-13", "ort": "Köln", "stadtteil": "Nippes", "modus": "stationär", "dauer": "1 Tag", "lat": 50.9634, "lon": 6.9562 },
+                    { "fbEventId": "CGN-2026-0002", "name": "Südstadtfest Hauptaktion", "beschreibung": "Großevent", "datum": "2026-06-13", "ort": "Köln", "stadtteil": "Südstadt", "modus": "stationär", "dauer": "2 Tage", "lat": 50.9225, "lon": 6.9610 }
+                ];
+                db.event_partner_relation = [
+                    { "fbEventId": "CGN-2026-0002", "CompanyId": "COMP-0001" }
+                ];
+                db.ansprechpartner = [
+                    { "ContactId": "CONT-0001", "Rolle": "Projektleitung", "Vorname": "Jan", "Nachname": "Schmitz", "Website": "https://...", "Email": "jan@...", "Handynummer": "017X", "primary_organization_id": "COMP-0001" }
+                ];
+                db.medienberichte = [
+                    { "NewsId": "NEWS-0001", "Headline": "Südstadtfest glänzt mit Nachhaltigkeit", "Überschrift": "Fläschbäck räumt auf", "Stimmung": "positiv", "Datum": "2026-06-14", "Herausgeber": "Kölner Stadt-Anzeiger", "Autor": "M. Müller", "URL": "https://ksta.de", "Fläschbäck_Zitat": "Das Projekt Fläschbäck zeigte neue Wege...", "fbEventId": "CGN-2026-0002" }
+                ];
+                saveToLocalStorage();
+            }
+            updateUI();
+        });
+
+        function saveToLocalStorage() {
+            localStorage.setItem('flaeschbaeck_db_v5', JSON.stringify(db));
+        }
+
+        function updateUI() {
+            renderDynamicForm();
+            renderMainTable();
+            renderSubTabSystem();
+            document.getElementById('subTabSection').style.display = (currentMainTab === 'sammelaktionen') ? 'block' : 'none';
+            document.getElementById('jsonPreview').textContent = JSON.stringify(db, null, 2);
+        }
+
+        function switchMainTab(tabName) {
+            currentMainTab = tabName;
+            document.querySelectorAll('.main-tab').forEach(b => b.classList.replace('border-teal-600', 'border-transparent'));
+            document.querySelectorAll('.main-tab').forEach(b => b.classList.replace('text-teal-600', 'text-gray-500'));
+            document.getElementById(`mainTab-${tabName}`).classList.replace('border-transparent', 'border-teal-600');
+            document.getElementById(`mainTab-${tabName}`).classList.replace('text-gray-500', 'text-teal-600');
+            updateUI();
+        }
+
+        // GENERIERUNG DER DYNAMISCHEN EINGABEMASKEN
+// KORRIGIERTE GENERIERUNG DER DYNAMISCHEN EINGABEMASKEN
+ // ERWEITERTES MARKETING CO-LAB FORMULAR INNERHALB DER GENERATOR-LOGIK
+        function renderDynamicForm() {
+            const container = document.getElementById('dynamicFormContainer');
+            
+            if (currentMainTab === 'sammelaktionen') {
+                const ed = currentEditingData.sammelaktionen || { fbEventId: '', name: '', beschreibung: '', datum: '', modus: 'stationär', stadtteil: '', lat: 0, lon: 0 };
+                container.innerHTML = `
+                    <h2 class="text-base font-bold text-teal-700 mb-3 pb-1 border-b border-gray-100">Sammelaktion dokumentieren</h2>
+                    <form onsubmit="saveEvent(event)" class="space-y-3 text-xs">
+                        <div>
+                            <label class="block font-semibold text-gray-500">Event ID</label>
+                            <div class="flex gap-2 mt-0.5">
+                                <input type="text" id="fbEventId" value="${ed.fbEventId}" required class="flex-1 p-2 border border-gray-300 rounded font-mono font-bold">
+                                <button type="button" onclick="suggestNextId('glassammelaktionen', 'fbEventId', 'CGN-2026-', 'fbEventId')" class="bg-teal-50 text-teal-700 px-2.5 rounded font-bold">+</button>
+                            </div>
+                        </div>
+                        <div><label class="block font-semibold text-gray-500">Name</label><input type="text" id="eventName" value="${ed.name}" required class="w-full mt-0.5 p-2 border border-gray-300 rounded font-medium"></div>
+                        <div><label class="block font-semibold text-gray-500">Kurzbeschreibung</label><textarea id="eventBeschreibung" rows="2" class="w-full mt-0.5 p-2 border border-gray-300 rounded">${ed.beschreibung}</textarea></div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div><label class="block font-semibold text-gray-500">Datum</label><input type="date" id="datum" value="${ed.datum}" required class="w-full p-2 border border-gray-300 rounded"></div>
+                            <div><label class="block font-semibold text-gray-500">Modus</label><select id="modus" class="w-full p-2 border border-gray-300 rounded"><option value="stationär" ${ed.modus==='stationär'?'selected':''}>Stationär</option><option value="mobil" ${ed.modus==='mobil'?'selected':''}>Mobil</option></select></div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-1">
+                            <div><label class="block font-semibold text-gray-500">Stadtteil</label><input type="text" id="stadtteil" value="${ed.stadtteil}" required class="w-full p-2 border border-gray-300 rounded"></div>
+                            <div><label class="block font-semibold text-gray-500">Lat</label><input type="number" step="any" id="eventLat" value="${ed.lat}" class="w-full p-2 border border-gray-300 rounded"></div>
+                            <div><label class="block font-semibold text-gray-500">Lon</label><input type="number" step="any" id="eventLon" value="${ed.lon}" class="w-full p-2 border border-gray-300 rounded"></div>
+                        </div>
+                        <button type="submit" class="w-full bg-teal-600 text-white py-2 rounded font-bold cursor-pointer uppercase shadow-sm">Sammelaktion speichern</button>
+                    </form>
+                    <h2 class="text-xs font-bold text-gray-600 mt-6 mb-2 pb-1 border-b border-gray-100">🔗 Partner-Zuweisung (n:m)</h2>
+                    <form onsubmit="saveRelation(event)" class="space-y-2 text-xs">
+                        <div><label class="text-gray-500">Sammelaktion</label><select id="relEventId" class="w-full p-1.5 border border-gray-300 rounded"></select></div>
+                        <div><label class="text-gray-500">Organisation</label><select id="relCompanyId" class="w-full p-1.5 border border-gray-300 rounded"></select></div>
+                        <button type="submit" class="w-full bg-gray-700 text-white py-1.5 rounded cursor-pointer">Verknüpfung speichern</button>
+                    </form>`;
+                db.glassammelaktionen.forEach(ev => document.getElementById('relEventId').innerHTML += `<option value="${ev.fbEventId}" ${ev.fbEventId===selectedEventId?'selected':''}>${ev.fbEventId} | ${ev.name}</option>`);
+                db.unternehmen.forEach(c => document.getElementById('relCompanyId').innerHTML += `<option value="${c.CompanyId}">${c.CompanyId} | ${c.Name}</option>`);
+            } 
+            else if (currentMainTab === 'organisationen') {
+                const ed = currentEditingData.organisationen || { CompanyId: '', Name: '', URL: '', Rolle: '', Type: 'Unternehmen', Rechtsform: '' };
+                container.innerHTML = `
+                    <h2 class="text-base font-bold text-teal-700 mb-3 pb-1 border-b border-gray-100">Organisation dokumentieren</h2>
+                    <form onsubmit="saveCompany(event)" class="space-y-3 text-xs">
+                        <div>
+                            <label class="block font-semibold text-gray-500">ID</label>
+                            <div class="flex gap-2 mt-0.5">
+                                <input type="text" id="compId" value="${ed.CompanyId}" required class="flex-1 p-2 border border-gray-300 rounded font-mono font-bold">
+                                <button type="button" onclick="suggestNextId('unternehmen', 'CompanyId', 'COMP-', 'compId')" class="bg-teal-50 text-teal-700 px-2.5 rounded font-bold">+</button>
+                            </div>
+                        </div>
+                        <div><label class="block font-semibold text-gray-500">Name</label><input type="text" id="compName" value="${…
+                    */
+    </script>
 </body>
 </html>

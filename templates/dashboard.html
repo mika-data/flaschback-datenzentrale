@@ -1,28 +1,113 @@
 {% extends "base.html" %}
+
 {% block content %}
 
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-    <div class="bg-white p-6 rounded-lg shadow-md col-span-2">
-        <h2 class="text-xl font-bold mb-4 text-teal-700 border-b pb-2">📅 Glassammelaktionen</h2>
+{% set label_style = "block text-xs font-semibold text-gray-500 mb-1" %}
+{% set input_style = "w-full p-2.5 border border-gray-200 rounded-lg text-sm focus:outline-teal-500" %}
+{% set button_style_ok = "w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold p-2.5 rounded-lg shadow-sm transition cursor-pointer" %}
+{% set button_style_alert = "w-full bg-red-500 hover:bg-red-800 text-white font-semibold p-2.5 rounded-lg shadow-sm transition cursor-pointer" %}
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    
+    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 h-fit">
+        <h2 class="text-base font-bold mb-4 text-teal-700 border-b border-gray-100 pb-2">Sammelaktion dokumentieren</h2>
+        <form id="editorForm" class="space-y-4 text-xs">
+            <div>
+                <label class="{{ label_style }}">Event ID</label>
+                <input type="text" id="fbEventId" class="{{ input_style }}" placeholder="z.B. CGN-2026-0001">
+            </div>
+            <div>
+                <label class="{{ label_style }}">Name</label>
+                <input type="text" id="name" class="{{ input_style }}" placeholder="z.B. Glassammelaktion am Neumarkt">
+            </div>
+            <div>
+                <label class="{{ label_style }}">Kurzbeschreibung</label>
+                <textarea id="beschreibung" class="{{ input_style }} h-20"></textarea>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="{{ label_style }}">Datum</label>
+                    <input type="date" id="datum" class="{{ input_style }}">
+                </div>
+                <div>
+                    <label class="{{ label_style }}">Modus</label>
+                    <select id="modus" class="{{ input_style }}">
+                        <option value="stationär">stationär</option>
+                        <option value="Parade">Parade</option>
+                    </select>
+                </div>
+            </div>
+            <div class="grid grid-cols-3 gap-3">
+                <div>
+                    <label class="{{ label_style }}">Stadtteil</label>
+                    <input type="text" id="stadtteil" class="{{ input_style }}">
+                </div>
+                <div>
+                    <label class="{{ label_style }}">Lat (Breite)</label>
+                    <input type="number" step="any" id="lat" class="{{ input_style }}" placeholder="z.B. 50.9375">
+                </div>
+                <div>
+                    <label class="{{ label_style }}">Lon (Länge)</label>
+                    <input type="number" step="any" id="lon" class="{{ input_style }}" placeholder="z.B. 6.9603">
+                </div>
+            </div>
+            
+            <div class="pt-2 space-y-2">
+                <button type="button" onclick="saveActionDetails()" class="{{ button_style_ok }}">
+                    Sammelaktion speichern
+                </button>
+                <button type="button" onclick="deleteActionDetails()" class="{{ button_style_alert }}">
+                    löschen
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 lg:col-span-2">
+        <h2 class="text-lg font-bold mb-4 text-teal-700 border-b border-gray-100 pb-2">Sammelaktionen-Historie</h2>
         <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
+            <table class="w-full text-left">
                 <thead>
-                    <tr class="bg-gray-100 text-gray-700 text-sm uppercase">
-                        <th class="p-3 border">ID</th>
-                        <th class="p-3 border">Name</th>
-                        <th class="p-3 border">Datum</th>
-                        <th class="p-3 border">Ort/Stadtteil</th>
-                        <th class="p-3 border">Modus</th>
+                    <tr class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-100">
+                        <th class="p-3 w-2/3">ID / Name</th>
+                        <th class="p-3">Ort & Geo</th>
+                        <th class="p-3">Setup</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody class="divide-y divide-gray-100">
                     {% for aktion in db.glassammelaktionen %}
-                    <tr class="hover:bg-gray-50 border-b text-sm cursor-pointer" onclick="loadActionDetails('{{ aktion.fbEventId }}')">
-                        <td class="p-3 border font-mono font-bold text-teal-600">{{ aktion.fbEventId }}</td>
-                        <td class="p-3 border font-semibold">{{ aktion.name }}</td>
-                        <td class="p-3 border">{{ aktion.datum }}</td>
-                        <td class="p-3 border">{{ aktion.ort }} ({{ aktion.stadtteil }})</td>
-                        <td class="p-3 border"><span class="px-2 py-1 rounded text-xs {% if aktion.modus == 'Parade' %}bg-blue-100 text-blue-800{% else %}bg-green-100 text-green-800{% endif %}">{{ aktion.modus }}</span></td>
+                    <tr class="hover:bg-teal-50/40 transition cursor-pointer" onclick="loadActionDetails('{{ aktion.fbEventId }}')">
+                        <td class="p-3 space-y-1">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-mono font-semibold px-2 py-0.5 bg-gray-200 rounded">
+                                    {{ aktion.fbEventId }}
+                                </span>
+                            </div>
+                            <div class="text-base font-bold text-gray-900 leading-tight">
+                                {{ aktion.name }}
+                            </div>
+                            <div class="text-xs text-[11px] text-gray-400 line-clamp-2 max-w-xl">
+                                {{ aktion.beschreibung or 'Keine Beschreibung hinterlegt.' }}
+                            </div>
+                        </td>
+                        <td class="p-3 text-xs">
+                                Köln ({{ aktion.stadtteil or 'unbekannt' }})
+                                <br>
+                            {% if aktion.lat and aktion.lon %}
+                            <div class="text-gray-400 font-mono">
+                                {{ aktion.lat | round(4) }}, {{ aktion.lon | round(4) }}
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td class="p-3 vertical-align-top space-y-2 text-xs">
+                            <span class="px-2 py-0.5 rounded-full text-[11px] uppercase font-medium {% if aktion.modus == 'Parade' %}bg-blue-50 text-blue-700{% else %}bg-green-50 text-green-700{% endif %}">
+                                {{ aktion.modus or 'stationär' }}
+                            </span>
+                            <div class="flex items-center gap-1.5 text-gray-500 font-medium">
+                                {{ aktion.datum }}
+                            </div>
+                        </tr>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -30,58 +115,40 @@
         </div>
     </div>
 
-    <div class="bg-white p-6 rounded-lg shadow-md">
-        <h2 class="text-xl font-bold mb-4 text-gray-700 border-b pb-2">🔍 Details verwalten</h2>
-        <form id="editorForm" class="space-y-4">
-            <div>
-                <label class="block text-xs font-bold uppercase tracking-wider text-gray-600">Event ID</label>
-                <input type="text" id="fbEventId" class="w-full p-2 border rounded font-mono bg-gray-50" placeholder="z.B. CGN-2026-0001">
-            </div>
-            <div>
-                <label class="block text-xs font-bold uppercase tracking-wider text-gray-600">Aktionsname</label>
-                <input type="text" id="name" class="w-full p-2 border rounded">
-            </div>
-            <div>
-                <label class="block text-xs font-bold uppercase tracking-wider text-gray-600">Beschreibung</label>
-                <textarea id="beschreibung" class="w-full p-2 border rounded h-24"></textarea>
-            </div>
-            <div class="grid grid-cols-2 gap-2">
-                <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-600">Datum</label>
-                    <input type="date" id="datum" class="w-full p-2 border rounded">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-600">Stadtteil</label>
-                    <input type="text" id="stadtteil" class="w-full p-2 border rounded">
-                </div>
-            </div>
-            <button type="button" onclick="saveActionDetails()" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold p-2 rounded shadow transition">💾 Änderungen via Upsert speichern</button>
-        </form>
-    </div>
 </div>
 
 <script>
 function loadActionDetails(eventId) {
     fetch('/api/v1/sammelaktion/' + eventId)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) throw new Error('Aktion nicht gefunden');
+            return response.json();
+        })
         .then(data => {
-            document.getElementById('fbEventId').value = data.fbEventId;
-            document.getElementById('name').value = data.name;
-            document.getElementById('beschreibung').value = data.beschreibung;
-            document.getElementById('datum').value = data.datum;
-            document.getElementById('stadtteil').value = data.stadtteil;
-        });
+            document.getElementById('fbEventId').value = data.fbEventId || '';
+            document.getElementById('name').value = data.name || '';
+            document.getElementById('beschreibung').value = data.beschreibung || '';
+            document.getElementById('datum').value = data.datum || '';
+            document.getElementById('stadtteil').value = data.stadtteil || '';
+            document.getElementById('modus').value = data.modus || 'stationär';
+            document.getElementById('lat').value = data.lat || '';
+            document.getElementById('lon').value = data.lon || '';
+        })
+        .catch(err => alert('❌ ' + err.message));
 }
 
 function saveActionDetails() {
-    const eventId = document.getElementById('fbEventId').value;
-    if(!eventId) return alert("Bitte wählen Sie eine Aktion aus oder geben Sie eine ID an.");
+    const eventId = document.getElementById('fbEventId').value.trim();
+    if (!eventId) return alert("Bitte geben Sie eine gültige Event ID an.");
     
     const payload = {
         name: document.getElementById('name').value,
         beschreibung: document.getElementById('beschreibung').value,
         datum: document.getElementById('datum').value,
-        stadtteil: document.getElementById('stadtteil').value
+        stadtteil: document.getElementById('stadtteil').value,
+        modus: document.getElementById('modus').value,
+        lat: document.getElementById('lat').value ? parseFloat(document.getElementById('lat').value) : null,
+        lon: document.getElementById('lon').value ? parseFloat(document.getElementById('lon').value) : null
     };
     
     fetch('/api/v1/sammelaktion/' + eventId, {
@@ -91,9 +158,30 @@ function saveActionDetails() {
     })
     .then(response => response.json())
     .then(res => {
-        alert("Upsert erfolgreich! ID: " + res.fbEventId);
+        alert("✅ Aktion erfolgreich gesichert!");
         window.location.reload();
-    });
+    })
+    .catch(err => alert("❌ Fehler beim Speichern."));
+}
+
+function deleteActionDetails() {
+    const eventId = document.getElementById('fbEventId').value.trim();
+    if (!eventId) return alert("Wählen Sie zuerst eine Aktion aus, die gelöscht werden soll.");
+    
+    if (!confirm(`Möchten Sie die Aktion ${eventId} wirklich unwiderruflich löschen?`)) return;
+    
+    fetch('/api/v1/sammelaktion/' + eventId, {
+        method: 'DELETE'
+    })
+    .then(response => {
+        if (!response.ok) throw new Error('Löschoperation serverseitig fehlgeschlagen.');
+        return response.json();
+    })
+    .then(() => {
+        alert("🗑️ Aktion erfolgreich entfernt.");
+        window.location.reload();
+    })
+    .catch(err => alert("❌ " + err.message));
 }
 </script>
 {% endblock %}
